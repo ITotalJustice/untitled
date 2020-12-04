@@ -37,14 +37,14 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   of a homebrew executable (.nro). This is intended to be used for sysmodules.
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
-APP_TITLE	:= batch-del
+APP_TITLE	:= untitled
 APP_AUTHOR	:= TotalJustice
 APP_VERSION	:= 0.0.1
 # ICON		:= assets/app_icon.jpg
 
-TARGET		:=	batch-del
+TARGET		:=	untitled
 BUILD		:=	nxbuild
-# batch-del
+# untitled
 SOURCES     :=	src
 # nanovg
 SOURCES		+=	src/nanovg src/nanovg/deko3d src/nanovg/deko3d/framework src/nanovg/deko3d/shaders

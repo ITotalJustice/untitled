@@ -38,3 +38,5 @@
 nxbuild/
 .vscode/
 assets/
+switch/
+*.zip
