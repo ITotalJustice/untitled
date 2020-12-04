@@ -220,14 +220,16 @@ void App::DrawList() {
 
         auto icon_paint = nvgImagePattern(this->vg, x + icon_spacing, y + icon_spacing, 90.f, 90.f, 0.f, this->entries[i].image, 1.f);
         gfx::drawRect(this->vg, x + icon_spacing, y + icon_spacing, 90.f, 90.f, icon_paint);
+        
         nvgSave(this->vg);
-        nvgScissor(this->vg, x, y, 795.f, box_height); // clip
+        nvgScissor(this->vg, x + title_spacing_left, y, 585.f, box_height); // clip
         gfx::drawText(this->vg, x + title_spacing_left, y + title_spacing_top, 24.f, this->entries[i].name.c_str(), nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::WHITE);
+        nvgRestore(this->vg);
+
         gfx::drawText(this->vg, x + text_spacing_left, y + text_spacing_top, 18.f, "Last played ??? or more ??? ago", nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::SILVER);
         gfx::drawTextArgs(this->vg, x + text_spacing_left + 25.f, y + text_spacing_top + 22.f, 18.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::SILVER, "%.1f GB", static_cast<float>(this->entries[i].size_nand) / static_cast<float>(0x40000000));
         gfx::drawTextArgs(this->vg, x + text_spacing_left + 130.f + 25.f, y + text_spacing_top + 22.f, 18.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::SILVER, "%.1f GB", static_cast<float>(this->entries[i].size_sd) / static_cast<float>(0x40000000));
         gfx::drawTextArgs(this->vg, x + 708.f, y + 78.f, 32.f, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP, gfx::Colour::CYAN, "%.1f GB", static_cast<float>(this->entries[i].size_total) / static_cast<float>(0x40000000));
-        nvgRestore(this->vg);
         y += box_height;
 
         // out of bounds (clip)

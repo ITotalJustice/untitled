@@ -2,6 +2,8 @@
 
 Batch title uninstaller for the Nintendo Switch
 
+![Img](images/example0.jpg)
+
 ---
 
 ## Credits
@@ -21,3 +23,5 @@ And thank you to following people that helped me out
 - shchmue for RE'ing `nsCalculateApplicationOccupiedSize` struct for me!
 
 - werwolv for helping me out with templates ^^
+
+- TeJay for helping test the app and providing the screenshots
