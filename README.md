@@ -4,6 +4,10 @@ Batch title uninstaller for the Nintendo Switch
 
 ![Img](images/example0.jpg)
 
+![Img](images/example1.jpg)
+
+![Img](images/example2.jpg)
+
 ---
 
 ## Credits
