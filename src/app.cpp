@@ -3,6 +3,7 @@
 // #include "nanovg/deko3d/nanovg_dk.h"
 #include "nanovg_dk.h"
 #include <algorithm>
+#include <ranges>
 #include <cassert>
 
 #ifndef NDEBUG
@@ -49,16 +50,6 @@ void App::Loop() {
     }
 }
 
-template <typename ...Args>
-void test(Args... args) {
-    const auto size = sizeof...(args);
-    std::printf("we have this many args %lu\n", size);
-}
-
-// void function(std::same_as<std::pair<char*, YourEnum>> auto ... args) {
-//   // ...
-// }
-
 void App::Poll() {
     // this will break with new libnx. when it does, let me know and i'll fix it
     hidScanInput();
@@ -100,14 +91,6 @@ void App::Poll() {
             LOG("Key %s is Pressed\n", str);
         }
     };
-
-    if (this->controller.A) {
-        // test(pair{"cat", true}, pair{"dog", false});
-        // LOG("float returned is %.2f\n", nvgText(this->vg, 0, 0, "hello there hhhhhhhhh", nullptr));
-    } else if (this->controller.Y) {
-        // test(pair{"cat", true});
-        // gfx::drawButtons(this->vg, gfx::pair{gfx::Button::A, "ayy"}, gfx::pair{gfx::Button::A, "beee"});
-    }
 
     display("A", this->controller.A);
     display("B", this->controller.B);

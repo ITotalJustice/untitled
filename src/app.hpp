@@ -105,7 +105,7 @@ private:
     void DrawConfirm();
     void DrawProgress();
 
-private: // from nanovg decko3d example by addubz
+private: // from nanovg decko3d example by adubbz
     static constexpr unsigned NumFramebuffers = 2;
     static constexpr unsigned StaticCmdSize = 0x1000;
     dk::UniqueDevice device;

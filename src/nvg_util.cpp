@@ -120,41 +120,6 @@ void drawRect(NVGcontext* vg, float x, float y, float w, float h, const NVGpaint
     nvgFill(vg);
 }
 
-void drawRoundedRect(NVGcontext* vg, float x, float y, float w, float h, float r, Colour c) {
-    nvgBeginPath(vg);
-    nvgRoundedRect(vg, x, y, w, h, r);
-    nvgFillColor(vg, getColour(c));
-    nvgFill(vg);
-}
-
-void drawRoundedRect(NVGcontext* vg, float x, float y, float w, float h, float r, const NVGcolor& c) {
-    nvgBeginPath(vg);
-    nvgRoundedRect(vg, x, y, w, h, r);
-    nvgFillColor(vg, c);
-    nvgFill(vg);
-}
-
-void drawRoundedRect(NVGcontext* vg, float x, float y, float w, float h, float r, const NVGcolor&& c) {
-    nvgBeginPath(vg);
-    nvgRoundedRect(vg, x, y, w, h, r);
-    nvgFillColor(vg, c);
-    nvgFill(vg);
-}
-
-void drawRoundedRect(NVGcontext* vg, float x, float y, float w, float h, float r, const NVGpaint& p) {
-    nvgBeginPath(vg);
-    nvgRoundedRect(vg, x, y, w, h, r);
-    nvgFillPaint(vg, p);
-    nvgFill(vg);
-}
-
-void drawRoundedRect(NVGcontext* vg, float x, float y, float w, float h, float r, const NVGpaint&& p) {
-    nvgBeginPath(vg);
-    nvgRoundedRect(vg, x, y, w, h, r);
-    nvgFillPaint(vg, p);
-    nvgFill(vg);
-}
-
 void drawText(NVGcontext* vg, float x, float y, float size, const char* str, const char* end, int align, Colour c) {
     nvgBeginPath(vg);
     nvgFontSize(vg, size);
@@ -188,41 +153,8 @@ void drawTextArgs(NVGcontext* vg, float x, float y, float size, int align, Colou
     va_end(v);
 }
 
-void drawTriangle(NVGcontext* vg, float aX, float aY, float bX, float bY, float cX, float cY, Colour c) {
-    nvgBeginPath(vg);
-    nvgMoveTo(vg, aX, aY);
-    nvgLineTo(vg, bX, bY);
-    nvgLineTo(vg, cX, cY);
-    nvgFillColor(vg, getColour(c));
-    nvgFill(vg);
-}
-
-void drawTriangle(NVGcontext* vg, float aX, float aY, float bX, float bY, float cX, float cY, const NVGcolor& c) {
-    nvgBeginPath(vg);
-    nvgMoveTo(vg, aX, aY);
-    nvgLineTo(vg, bX, bY);
-    nvgLineTo(vg, cX, cY);
-    nvgFillColor(vg, c);
-    nvgFill(vg);
-}
-
-void drawTriangle(NVGcontext* vg, float aX, float aY, float bX, float bY, float cX, float cY, const NVGcolor&& c) {
-    nvgBeginPath(vg);
-    nvgMoveTo(vg, aX, aY);
-    nvgLineTo(vg, bX, bY);
-    nvgLineTo(vg, cX, cY);
-    nvgFillColor(vg, c);
-    nvgFill(vg);
-}
-
 void drawButton(NVGcontext* vg, float x, float y, float size, Button button) {
     drawText(vg, x, y, size, getButton(button), nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE, getColour(Colour::WHITE));
-}
-
-void drawButtonText(NVGcontext* vg, float x, float y, float size, Button button, const char* text) {
-    const float text_pos = x + size + 12.f;
-    drawButton(vg, x, y, size, button);
-    drawText(vg, text_pos, y, size, text, nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE, getColour(Colour::WHITE));
 }
 
 } // namespace tj::gfx
