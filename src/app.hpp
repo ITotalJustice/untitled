@@ -1,8 +1,7 @@
 #pragma once
 
 #include "nanovg/nanovg.h"
-#include "nanovg/dk_renderer.hpp"
-//#include "nanovg/deko3d/nanovg_dk.h"
+#include "nanovg/deko3d/dk_renderer.hpp"
 #include <switch.h>
 #include <cstdint>
 #include <vector>
@@ -66,6 +65,7 @@ private:
     NVGcontext* vg{nullptr};
     std::vector<AppEntry> entries;
     std::vector<AppID> delete_entries;
+    PadState pad{};
     Controller controller{};
     Controller previous_controller{};
 

@@ -1,7 +1,6 @@
 #include "app.hpp"
 #include "nvg_util.hpp"
-// #include "nanovg/deko3d/nanovg_dk.h"
-#include "nanovg_dk.h"
+#include "nanovg/deko3d/nanovg_dk.h"
 #include <algorithm>
 #include <ranges>
 #include <cassert>
@@ -51,10 +50,9 @@ void App::Loop() {
 }
 
 void App::Poll() {
-    // this will break with new libnx. when it does, let me know and i'll fix it
-    hidScanInput();
-    const auto down = hidKeysDown(CONTROLLER_P1_AUTO);
-    // const auto held = hidKeysHeld(CONTROLLER_P1_AUTO);
+    padUpdate(&this->pad);
+    const auto down = padGetButtonsDown(&this->pad);
+
     const auto func = [](bool down, bool& old_k, bool& new_k) {
         if (!down) {
             old_k = new_k = false;
@@ -69,21 +67,21 @@ void App::Poll() {
     // held accross menus.
     // i'll leave this here just in case i add pc building as i'll need
     // this for sdl keys.
-    func(down & KEY_A, this->previous_controller.A, this->controller.A);
-    func(down & KEY_B, this->previous_controller.B, this->controller.B);
-    func(down & KEY_X, this->previous_controller.X, this->controller.X);
-    func(down & KEY_Y, this->previous_controller.Y, this->controller.Y);
-    func(down & KEY_L, this->previous_controller.L, this->controller.L);
-    func(down & KEY_R, this->previous_controller.R, this->controller.R);
-    func(down & KEY_ZL, this->previous_controller.L2, this->controller.L2);
-    func(down & KEY_ZR, this->previous_controller.R2, this->controller.R2);
-    func(down & KEY_PLUS, this->previous_controller.START, this->controller.START);
-    func(down & KEY_MINUS, this->previous_controller.SELECT, this->controller.SELECT);
+    func(down & HidNpadButton_A, this->previous_controller.A, this->controller.A);
+    func(down & HidNpadButton_B, this->previous_controller.B, this->controller.B);
+    func(down & HidNpadButton_X, this->previous_controller.X, this->controller.X);
+    func(down & HidNpadButton_Y, this->previous_controller.Y, this->controller.Y);
+    func(down & HidNpadButton_L, this->previous_controller.L, this->controller.L);
+    func(down & HidNpadButton_R, this->previous_controller.R, this->controller.R);
+    func(down & HidNpadButton_ZL, this->previous_controller.L2, this->controller.L2);
+    func(down & HidNpadButton_ZR, this->previous_controller.R2, this->controller.R2);
+    func(down & HidNpadButton_Plus, this->previous_controller.START, this->controller.START);
+    func(down & HidNpadButton_Minus, this->previous_controller.SELECT, this->controller.SELECT);
     // keep directional keys pressed.
-    this->previous_controller.DOWN = this->controller.DOWN = (down & KEY_DOWN);// | (held & KEY_DOWN);
-    this->previous_controller.UP = this->controller.UP = (down & KEY_UP);// | (held & KEY_UP);
-    this->previous_controller.LEFT = this->controller.LEFT = (down & KEY_LEFT);// | (held & KEY_LEFT);
-    this->previous_controller.RIGHT = this->controller.RIGHT = (down & KEY_RIGHT);// | (held & KEY_RIGHT);
+    this->previous_controller.DOWN = this->controller.DOWN = (down & HidNpadButton_AnyDown);// | (held & KEY_DOWN);
+    this->previous_controller.UP = this->controller.UP = (down & HidNpadButton_AnyUp);// | (held & KEY_UP);
+    this->previous_controller.LEFT = this->controller.LEFT = (down & HidNpadButton_AnyLeft);// | (held & KEY_LEFT);
+    this->previous_controller.RIGHT = this->controller.RIGHT = (down & HidNpadButton_AnyRight);// | (held & KEY_RIGHT);
 
 #ifndef NDEBUG
     auto display = [](const char* str, bool key) {
@@ -148,19 +146,26 @@ void App::DrawBackground() {
 }
 
 void App::DrawList() {
-    static const float box_height = 120.f;
-    static const float box_width = 715.f;
-    static const float icon_spacing = 12.f;
-    static const float title_spacing_left = 116.f;
-    static const float title_spacing_top = 30.f;
-    static const float text_spacing_left = title_spacing_left;
-    static const float text_spacing_top = 67.f;
-    static const float sidebox_x = 870.f;
-    static const float sidebox_y = 87.f;
-    static const float sidebox_w = 380.f;
-    static const float sidebox_h = 558.f;
+    static constexpr float box_height = 120.f;
+    static constexpr float box_width = 715.f;
+    static constexpr float icon_spacing = 12.f;
+    static constexpr float title_spacing_left = 116.f;
+    static constexpr float title_spacing_top = 30.f;
+    static constexpr float text_spacing_left = title_spacing_left;
+    static constexpr float text_spacing_top = 67.f;
+    static constexpr float sidebox_x = 870.f;
+    static constexpr float sidebox_y = 87.f;
+    static constexpr float sidebox_w = 380.f;
+    static constexpr float sidebox_h = 558.f;
 
+// uses the APP_VERSION define in makefile for string version.
+// source: https://stackoverflow.com/a/2411008
+#define STRINGIZE(x) #x
+#define STRINGIZE_VALUE_OF(x) STRINGIZE(x)
     gfx::drawText(this->vg, 70.f, 40.f, 28.f, "Software", nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::WHITE);
+    gfx::drawText(this->vg, 1224.f, 45.f, 22.f, STRINGIZE_VALUE_OF(UNTITLED_VERSION_STRING), nullptr, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP, gfx::Colour::SILVER);
+#undef STRINGIZE
+#undef STRINGIZE_VALUE_OF
 
     auto draw_size = [&](const char* str, float x, float y, std::size_t storage_size, std::size_t storage_free, std::size_t storage_used, std::size_t app_size) {
         gfx::drawText(this->vg, x, y, 22.f, str, nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::WHITE);
@@ -185,7 +190,7 @@ void App::DrawList() {
     nvgSave(this->vg);
     nvgScissor(this->vg, 30.f, 86.0f, 1220.f, 646.0f); // clip
 
-    const float x = 90.f;
+    static constexpr float x = 90.f;
     float y = this->yoff;
 
     for (size_t i = this->start; i < this->entries.size(); ++i) {
@@ -481,6 +486,9 @@ App::App() {
     // todo: handle errors
     this->Scan();
     std::ranges::sort(this->entries, std::ranges::greater{}, &AppEntry::size_total);
+    
+    padConfigureInput(1, HidNpadStyleSet_NpadStandard);
+    padInitializeDefault(&this->pad);
 }
 
 App::~App() {

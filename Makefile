@@ -39,7 +39,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 #---------------------------------------------------------------------------------
 APP_TITLE	:= untitled
 APP_AUTHOR	:= TotalJustice
-APP_VERSION	:= 0.0.1
+APP_VERSION	:= 1.0.1
 # ICON		:= assets/app_icon.jpg
 
 TARGET		:=	untitled
@@ -68,6 +68,8 @@ C_OPTIMISE	+=	-flto -ffat-lto-objects -fuse-linker-plugin -flto-compression-leve
 MY_DEFINES	:=	-Wall #-Wextra #-Werror # todo: fix warns soon
 # stb (we only need jpeg for ns icons)
 MY_DEFINES	+=	-DSTBI_ONLY_JPEG
+# version
+MY_DEFINES	+= -DUNTITLED_VERSION_STRING=$(APP_VERSION)
 
 CFLAGS	:=	$(C_OPTIMISE) $(ARCH) $(DEFINES) $(MY_DEFINES)
 
