@@ -10,6 +10,19 @@ Batch title uninstaller for the Nintendo Switch
 
 ---
 
+## Building
+
+the following needs to be installed via dkp-pacman
+
+- uam
+- switch-glm
+- libnx
+- deko3d
+
+if you're having trouble building, feel free to open an issue!
+
+---
+
 ## Credits
 
 Special thank you to everyone that contributed to the following libs.

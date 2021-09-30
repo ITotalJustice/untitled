@@ -8,6 +8,7 @@
 #include <string>
 #include <future>
 #include <mutex>
+#include <optional>
 #include <functional>
 
 namespace tj {
