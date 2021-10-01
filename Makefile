@@ -39,7 +39,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 #---------------------------------------------------------------------------------
 APP_TITLE	:= untitled
 APP_AUTHOR	:= TotalJustice
-APP_VERSION	:= 1.0.1
+APP_VERSION	:= 1.1.0
 # ICON		:= assets/app_icon.jpg
 
 TARGET		:=	untitled
@@ -60,7 +60,7 @@ OUT_SHADERS	:=	shaders
 ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
 
 # basic
-C_OPTIMISE	:=	-O3 -DNDEBUG 
+C_OPTIMISE	:=	-O3 -DNDEBUG
 # lto
 C_OPTIMISE	+=	-flto -ffat-lto-objects -fuse-linker-plugin -flto-compression-level=9 -ffunction-sections -fdata-sections -fmerge-all-constants -Wl,--gc-sections
 

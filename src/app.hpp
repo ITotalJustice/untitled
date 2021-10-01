@@ -39,9 +39,8 @@ struct Controller final {
     static constexpr int MAX_STEP = 250;
     int step = 50;
     int counter = 0;
-    HidNpadButton button_held_type;
 
-    void UpdateButtonHeld(bool& down, bool held, HidNpadButton type);
+    void UpdateButtonHeld(bool& down, bool held);
 };
 
 struct AppEntry final {

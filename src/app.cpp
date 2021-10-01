@@ -49,7 +49,7 @@ void App::Loop() {
     }
 }
 
-void Controller::UpdateButtonHeld(bool& down, bool held, HidNpadButton type) {
+void Controller::UpdateButtonHeld(bool& down, bool held) {
     if (down) {
         this->step = 50;
         this->counter = 0;
@@ -87,8 +87,8 @@ void App::Poll() {
     this->controller.LEFT = (down & HidNpadButton_AnyLeft);
     this->controller.RIGHT = (down & HidNpadButton_AnyRight);
 
-    this->controller.UpdateButtonHeld(this->controller.DOWN, (held & HidNpadButton_AnyDown), HidNpadButton_AnyDown);
-    this->controller.UpdateButtonHeld(this->controller.UP, (held & HidNpadButton_AnyUp), HidNpadButton_AnyUp);
+    this->controller.UpdateButtonHeld(this->controller.DOWN, held & HidNpadButton_AnyDown);
+    this->controller.UpdateButtonHeld(this->controller.UP, held & HidNpadButton_AnyUp);
 
 #ifndef NDEBUG
     auto display = [](const char* str, bool key) {
