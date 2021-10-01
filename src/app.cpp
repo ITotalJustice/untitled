@@ -49,39 +49,46 @@ void App::Loop() {
     }
 }
 
+void Controller::UpdateButtonHeld(bool& down, bool held, HidNpadButton type) {
+    if (down) {
+        this->step = 50;
+        this->counter = 0;
+    } else if (held) {
+        this->counter += this->step;
+
+        if (this->counter >= this->MAX)
+        {
+            down = true;
+            this->counter = 0;
+            this->step = std::min(this->step + 50, this->MAX_STEP);
+        }
+    }
+}
+
 void App::Poll() {
     padUpdate(&this->pad);
+
     const auto down = padGetButtonsDown(&this->pad);
+    const auto held = padGetButtons(&this->pad);
 
-    const auto func = [](bool down, bool& old_k, bool& new_k) {
-        if (!down) {
-            old_k = new_k = false;
-        } else if (!old_k) { // only set if key wasn't already set
-            old_k = new_k = true;
-        } else {
-            new_k = false;
-        }
-    };
-
-    // so it turns out that i didn't need to make sure the keys weren't
-    // held accross menus.
-    // i'll leave this here just in case i add pc building as i'll need
-    // this for sdl keys.
-    func(down & HidNpadButton_A, this->previous_controller.A, this->controller.A);
-    func(down & HidNpadButton_B, this->previous_controller.B, this->controller.B);
-    func(down & HidNpadButton_X, this->previous_controller.X, this->controller.X);
-    func(down & HidNpadButton_Y, this->previous_controller.Y, this->controller.Y);
-    func(down & HidNpadButton_L, this->previous_controller.L, this->controller.L);
-    func(down & HidNpadButton_R, this->previous_controller.R, this->controller.R);
-    func(down & HidNpadButton_ZL, this->previous_controller.L2, this->controller.L2);
-    func(down & HidNpadButton_ZR, this->previous_controller.R2, this->controller.R2);
-    func(down & HidNpadButton_Plus, this->previous_controller.START, this->controller.START);
-    func(down & HidNpadButton_Minus, this->previous_controller.SELECT, this->controller.SELECT);
+    this->controller.A = down & HidNpadButton_A;
+    this->controller.B = down & HidNpadButton_B;
+    this->controller.X = down & HidNpadButton_X;
+    this->controller.Y = down & HidNpadButton_Y;
+    this->controller.L = down & HidNpadButton_L;
+    this->controller.R = down & HidNpadButton_R;
+    this->controller.L2 = down & HidNpadButton_ZL;
+    this->controller.R2 = down & HidNpadButton_ZR;
+    this->controller.START = down & HidNpadButton_Plus;
+    this->controller.SELECT = down & HidNpadButton_Minus;
     // keep directional keys pressed.
-    this->previous_controller.DOWN = this->controller.DOWN = (down & HidNpadButton_AnyDown);// | (held & KEY_DOWN);
-    this->previous_controller.UP = this->controller.UP = (down & HidNpadButton_AnyUp);// | (held & KEY_UP);
-    this->previous_controller.LEFT = this->controller.LEFT = (down & HidNpadButton_AnyLeft);// | (held & KEY_LEFT);
-    this->previous_controller.RIGHT = this->controller.RIGHT = (down & HidNpadButton_AnyRight);// | (held & KEY_RIGHT);
+    this->controller.DOWN = (down & HidNpadButton_AnyDown);
+    this->controller.UP = (down & HidNpadButton_AnyUp);
+    this->controller.LEFT = (down & HidNpadButton_AnyLeft);
+    this->controller.RIGHT = (down & HidNpadButton_AnyRight);
+
+    this->controller.UpdateButtonHeld(this->controller.DOWN, (held & HidNpadButton_AnyDown), HidNpadButton_AnyDown);
+    this->controller.UpdateButtonHeld(this->controller.UP, (held & HidNpadButton_AnyUp), HidNpadButton_AnyUp);
 
 #ifndef NDEBUG
     auto display = [](const char* str, bool key) {
@@ -208,7 +215,7 @@ void App::DrawList() {
 
         auto icon_paint = nvgImagePattern(this->vg, x + icon_spacing, y + icon_spacing, 90.f, 90.f, 0.f, this->entries[i].image, 1.f);
         gfx::drawRect(this->vg, x + icon_spacing, y + icon_spacing, 90.f, 90.f, icon_paint);
-        
+
         nvgSave(this->vg);
         nvgScissor(this->vg, x + title_spacing_left, y, 585.f, box_height); // clip
         gfx::drawText(this->vg, x + title_spacing_left, y + title_spacing_top, 24.f, this->entries[i].name.c_str(), nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::WHITE);
@@ -227,9 +234,9 @@ void App::DrawList() {
     }
 
     nvgRestore(this->vg);
-    
+
     gfx::drawTextArgs(this->vg, 55.f, 670.f, 24.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::WHITE, "Selected %lu / %lu", this->delete_count, this->entries.size());
-    gfx::drawButtons(this->vg, gfx::pair{gfx::Button::A, "Select"}, gfx::pair{gfx::Button::B, "Exit"}, gfx::pair{gfx::Button::PLUS, "Delete Selected"});
+    gfx::drawButtons(this->vg, gfx::pair{gfx::Button::A, "Select"}, gfx::pair{gfx::Button::B, "Exit"}, gfx::pair{gfx::Button::PLUS, "Delete Selected"}, gfx::pair{gfx::Button::R, this->GetSortStr()});
 
 }
 
@@ -243,6 +250,29 @@ void App::DrawProgress() {
     const auto count = this->delete_index;
     this->mutex.unlock();
     gfx::drawTextArgs(this->vg, SCREEN_WIDTH / 2.f, SCREEN_HEIGHT / 2.f, 36.f, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE, gfx::Colour::YELLOW, "Deleted %lu / %lu", count, this->delete_entries.size());
+}
+
+void App::Sort()
+{
+    switch (static_cast<SortType>(this->sort_type))
+    {
+        case SortType::Alpha_AZ: std::ranges::sort(this->entries, std::ranges::less{}, &AppEntry::name); break;
+        case SortType::Alpha_ZA: std::ranges::sort(this->entries, std::ranges::greater{}, &AppEntry::name); break;
+        case SortType::Size_BigSmall: std::ranges::sort(this->entries, std::ranges::greater{}, &AppEntry::size_total); break;
+        case SortType::Size_SmallBig: std::ranges::sort(this->entries, std::ranges::less{}, &AppEntry::size_total); break;
+    }
+}
+
+const char* App::GetSortStr() {
+    switch (static_cast<SortType>(this->sort_type))
+    {
+        case SortType::Alpha_AZ: return "Sort Alpha: A-Z";
+        case SortType::Alpha_ZA: return "Sort Alpha: Z-A";
+        case SortType::Size_BigSmall: return "Sort Size: 9-0";
+        case SortType::Size_SmallBig: return "Sort Size: 0-9";
+    }
+
+    return "NULL";
 }
 
 void App::UpdateList() {
@@ -288,6 +318,16 @@ void App::UpdateList() {
                 --this->start;
             }
         }
+    } else if (this->controller.R)
+    {
+        this->sort_type++;
+
+        if (this->sort_type == static_cast<uint8_t>(SortType::MAX))
+        {
+            this->sort_type = 0;
+        }
+
+        this->Sort();
     }
     // handle direction keys
 }
@@ -485,8 +525,8 @@ App::App() {
 
     // todo: handle errors
     this->Scan();
-    std::ranges::sort(this->entries, std::ranges::greater{}, &AppEntry::size_total);
-    
+    this->Sort();
+
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     padInitializeDefault(&this->pad);
 }

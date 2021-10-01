@@ -34,6 +34,14 @@ struct Controller final {
     bool RIGHT;
     bool UP;
     bool DOWN;
+
+    static constexpr int MAX = 1000;
+    static constexpr int MAX_STEP = 250;
+    int step = 50;
+    int counter = 0;
+    HidNpadButton button_held_type;
+
+    void UpdateButtonHeld(bool& down, bool held, HidNpadButton type);
 };
 
 struct AppEntry final {
@@ -68,7 +76,6 @@ private:
     std::vector<AppID> delete_entries;
     PadState pad{};
     Controller controller{};
-    Controller previous_controller{};
 
     std::size_t nand_storage_size_total{};
     std::size_t nand_storage_size_used{};
@@ -92,10 +99,22 @@ private:
     MenuMode menu_mode{MenuMode::LIST};
     bool quit{false};
 
+    enum class SortType {
+        Alpha_AZ,
+        Alpha_ZA,
+        Size_BigSmall,
+        Size_SmallBig,
+        MAX,
+    };
+
+    uint8_t sort_type{static_cast<uint8_t>(SortType::Size_BigSmall)};
+
     void Draw();
     void Update();
     void Poll();
     bool Scan(); // called on init
+    void Sort();
+    const char* GetSortStr();
 
     void UpdateList();
     void UpdateConfirm();
