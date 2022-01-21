@@ -7,6 +7,9 @@ jobs:
     container: devkitpro/devkita64:latest
 
     steps:
+    - name: Checkout 🛎️
+      uses: actions/checkout@master
+
     - name: Build
       run: make -j2
 
