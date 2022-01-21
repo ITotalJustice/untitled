@@ -221,9 +221,8 @@ void App::DrawList() {
         gfx::drawText(this->vg, x + title_spacing_left, y + title_spacing_top, 24.f, this->entries[i].name.c_str(), nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::WHITE);
         nvgRestore(this->vg);
 
-        gfx::drawText(this->vg, x + text_spacing_left, y + text_spacing_top, 18.f, "Last played ??? or more ??? ago", nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::SILVER);
-        gfx::drawTextArgs(this->vg, x + text_spacing_left + 25.f, y + text_spacing_top + 22.f, 18.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::SILVER, "%.1f GB", static_cast<float>(this->entries[i].size_nand) / static_cast<float>(0x40000000));
-        gfx::drawTextArgs(this->vg, x + text_spacing_left + 130.f + 25.f, y + text_spacing_top + 22.f, 18.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::SILVER, "%.1f GB", static_cast<float>(this->entries[i].size_sd) / static_cast<float>(0x40000000));
+        gfx::drawTextArgs(this->vg, x + text_spacing_left + 25.f, y + text_spacing_top + 9.f, 22.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::SILVER, "Nand: %.1f GB", static_cast<float>(this->entries[i].size_nand) / static_cast<float>(0x40000000));
+        gfx::drawTextArgs(this->vg, x + text_spacing_left + 180.f + 25.f, y + text_spacing_top + 9.f, 22.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::SILVER, "Sd: %.1f GB", static_cast<float>(this->entries[i].size_sd) / static_cast<float>(0x40000000));
         gfx::drawTextArgs(this->vg, x + 708.f, y + 78.f, 32.f, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP, gfx::Colour::CYAN, "%.1f GB", static_cast<float>(this->entries[i].size_total) / static_cast<float>(0x40000000));
         y += box_height;
 
@@ -410,12 +409,22 @@ bool App::Scan() {
         }
 
         for (auto i = 0; i < record_count; ++i) {
-            AppEntry entry;
+        AppEntry entry;
             result = nsGetApplicationControlData(NsApplicationControlSource_Storage, record_list[i].application_id, control_data.get(), sizeof(NsApplicationControlData), &jpeg_size);
             // can fail with very messed up piracy installs, it would fail in ofw as well.
             if (R_FAILED(result)) {
                 LOG("failed to get control data for %lX\n", record_list[i].application_id);
-                return false;
+
+                // this is a corrupted entry!
+                entry.name = "Corrupted";
+                entry.author = "NA";
+                entry.display_version = "NA";
+                entry.id = record_list[i].application_id;
+                entry.image = this->default_icon_image;
+                entry.own_image = false; // we don't own it
+                this->entries.emplace_back(std::move(entry));
+                ++count;
+                // return false;
             } else {
                 result = nsGetApplicationDesiredLanguage(&control_data->nacp, &language_entry);
                 if (R_FAILED(result)) {
@@ -454,6 +463,7 @@ bool App::Scan() {
                     entry.id = record_list[i].application_id;
                     assert((jpeg_size - sizeof(NacpStruct)) > 0 && "jpeg size is smaller than the size of NacpStruct");
                     entry.image = nvgCreateImageMem(this->vg, 0, control_data->icon, jpeg_size - sizeof(NacpStruct));
+                    entry.own_image = true; // we own it
                     LOG("added %s\n", entry.name.c_str());
                     this->entries.emplace_back(std::move(entry));
                     ++count;
@@ -522,6 +532,7 @@ App::App() {
     }
 
     nvgAddFallbackFontId(this->vg, standard_font, extended_font);
+    this->default_icon_image = nvgCreateImage(this->vg, "romfs:/default_icon.jpg", NVG_IMAGE_NEAREST);
 
     // todo: handle errors
     this->Scan();
@@ -533,8 +544,11 @@ App::App() {
 
 App::~App() {
     for (auto&p : this->entries) {
-        nvgDeleteImage(this->vg, p.image);
+        if (p.own_image) {
+            nvgDeleteImage(this->vg, p.image);
+        }
     }
+    nvgDeleteImage(this->vg, default_icon_image);
     this->destroyFramebufferResources();
     nvgDeleteDk(this->vg);
     this->renderer.reset();

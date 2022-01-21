@@ -1,0 +1,16 @@
+name: build
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:latest
+
+    steps:
+    - name: Build
+      run: make -j2
+
+    - uses: actions/upload-artifact@master
+      with:
+        name: untitled
+        path: untitled.nro

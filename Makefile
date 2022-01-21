@@ -39,7 +39,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 #---------------------------------------------------------------------------------
 APP_TITLE	:= untitled
 APP_AUTHOR	:= TotalJustice
-APP_VERSION	:= 1.1.0
+APP_VERSION	:= 1.2.0
 # ICON		:= assets/app_icon.jpg
 
 TARGET		:=	untitled

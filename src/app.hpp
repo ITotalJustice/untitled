@@ -53,6 +53,7 @@ struct AppEntry final {
     AppID id;
     int image;
     bool selected{false};
+    bool own_image{false};
 };
 
 struct NsDeleteData final {
@@ -75,6 +76,7 @@ private:
     std::vector<AppID> delete_entries;
     PadState pad{};
     Controller controller{};
+    int default_icon_image{};
 
     std::size_t nand_storage_size_total{};
     std::size_t nand_storage_size_used{};

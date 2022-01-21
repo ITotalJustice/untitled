@@ -19,6 +19,22 @@ the following needs to be installed via dkp-pacman
 - libnx
 - deko3d
 
+```shell
+sudo pacman -S uam switch-glm libnx deko3d
+```
+
+then download the repo using git (you can instead download the zip if you prefer)
+
+```shell
+git clone https://github.com/ITotalJustice/untitled.git
+cd untitled
+```
+
+then build:
+
+```shell
+make -j
+```
 if you're having trouble building, feel free to open an issue!
 
 ---
@@ -30,6 +46,8 @@ Special thank you to everyone that contributed to the following libs.
 - [nanovg](https://github.com/memononen/nanovg)
 
 - [libnx](https://github.com/switchbrew/libnx)
+
+- [libnx for their default icon](https://github.com/switchbrew/libnx/blob/master/nx/default_icon.jpg)
 
 - [deko3d by fincs](https://github.com/devkitPro/deko3d)
 
