@@ -2,6 +2,8 @@
 
 #include "nanovg/nanovg.h"
 #include "nanovg/deko3d/dk_renderer.hpp"
+#include "async.hpp"
+
 #include <switch.h>
 #include <cstdint>
 #include <vector>
@@ -10,12 +12,14 @@
 #include <mutex>
 #include <optional>
 #include <functional>
+#include <stop_token>
+#include <utility>
 
 namespace tj {
 
 using AppID = std::uint64_t;
 
-enum class MenuMode { LIST, CONFIRM, PROGRESS };
+enum class MenuMode { LOAD, LIST, CONFIRM, PROGRESS };
 
 struct Controller final {
     // these are tap only
@@ -62,8 +66,6 @@ struct NsDeleteData final {
     std::function<void(void)> done_cb; // called when finished
 };
 
-void NsDeleteAppsAsync(const NsDeleteData& data);
-
 class App final {
 public:
     App();
@@ -85,9 +87,10 @@ private:
     std::size_t sdcard_storage_size_used{};
     std::size_t sdcard_storage_size_free{};
 
-    std::future<void> async_thread;
+    util::AsyncFurture<void> async_thread;
     std::mutex mutex{};
     std::size_t delete_index{}; // mutex locked
+    bool finished_scanning{false}; // mutex locked
     bool finished_deleting{false}; // mutex locked
 
     // this is just bad code, ignore it
@@ -97,7 +100,8 @@ private:
     std::size_t start{0};
     std::size_t delete_count{0};
     std::size_t index{}; // where i am in the array
-    MenuMode menu_mode{MenuMode::LIST};
+    MenuMode menu_mode{MenuMode::LOAD};
+    bool has_correupted{false};
     bool quit{false};
 
     enum class SortType {
@@ -108,20 +112,22 @@ private:
         MAX,
     };
 
-    uint8_t sort_type{static_cast<uint8_t>(SortType::Size_BigSmall)};
+    uint8_t sort_type{std::to_underlying(SortType::Size_BigSmall)};
 
     void Draw();
     void Update();
     void Poll();
-    bool Scan(); // called on init
+    void Scan(std::stop_token stop_token); // called on init
     void Sort();
     const char* GetSortStr();
 
+    void UpdateLoad();
     void UpdateList();
     void UpdateConfirm();
     void UpdateProgress();
 
     void DrawBackground();
+    void DrawLoad();
     void DrawList();
     void DrawConfirm();
     void DrawProgress();

@@ -39,8 +39,8 @@ include $(DEVKITPRO)/libnx/switch_rules
 #---------------------------------------------------------------------------------
 APP_TITLE	:= untitled
 APP_AUTHOR	:= TotalJustice
-APP_VERSION	:= 1.2.0
-# ICON		:= assets/app_icon.jpg
+APP_VERSION	:= 1.3.0
+ICON		:= assets/icon.jpg
 
 TARGET		:=	untitled
 BUILD		:=	nxbuild
@@ -62,7 +62,7 @@ ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
 # basic
 C_OPTIMISE	:=	-O3 -DNDEBUG
 # lto
-C_OPTIMISE	+=	-flto -ffat-lto-objects -fuse-linker-plugin -flto-compression-level=9 -ffunction-sections -fdata-sections -fmerge-all-constants -Wl,--gc-sections
+C_OPTIMISE	+=	-flto=3 -ffat-lto-objects -fuse-linker-plugin -flto-compression-level=9 -ffunction-sections -fdata-sections -fmerge-all-constants -Wl,--gc-sections
 
 # warns
 MY_DEFINES	:=	-Wall #-Wextra #-Werror # todo: fix warns soon
@@ -75,7 +75,7 @@ CFLAGS	:=	$(C_OPTIMISE) $(ARCH) $(DEFINES) $(MY_DEFINES)
 
 CFLAGS	+=	$(INCLUDE) -D__SWITCH__
 
-CXXFLAGS	:= $(CFLAGS) -std=c++20 -fno-exceptions -fno-rtti
+CXXFLAGS	:= $(CFLAGS) -std=c++23 -fno-exceptions -fno-rtti
 
 ASFLAGS	:=	$(ARCH)
 LDFLAGS	=	-specs=$(DEVKITPRO)/libnx/switch.specs $(ARCH) -Wl,-Map,$(notdir $*.map)

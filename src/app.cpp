@@ -1,16 +1,20 @@
 #include "app.hpp"
 #include "nvg_util.hpp"
 #include "nanovg/deko3d/nanovg_dk.h"
+
 #include <algorithm>
 #include <ranges>
 #include <cassert>
 
 #ifndef NDEBUG
-#include <cstdio>
-#define LOG(...) std::printf(__VA_ARGS__)
+    #include <cstdio>
+    #define LOG(...) std::printf(__VA_ARGS__)
 #else // NDEBUG
-#define LOG(...)
+    #define LOG(...)
 #endif // NDEBUG
+
+namespace tj {
+namespace {
 
 // thank you Shchmue ^^
 struct ApplicationOccupiedSizeEntry {
@@ -24,13 +28,16 @@ struct ApplicationOccupiedSize {
     ApplicationOccupiedSizeEntry entry[4];
 };
 
-namespace tj {
+constexpr float SCREEN_WIDTH = 1280.f;
+constexpr float SCREEN_HEIGHT = 720.f;
 
-static constexpr float SCREEN_WIDTH = 1280.f;
-static constexpr float SCREEN_HEIGHT = 720.f;
 
-void NsDeleteAppsAsync(const NsDeleteData& data) {
+void NsDeleteAppsAsync(std::stop_token stop_token, NsDeleteData&& data) {
     for (const auto&p : data.entries) {
+        if (stop_token.stop_requested()) {
+            return;
+        }
+
         const auto result = nsDeleteApplicationCompletely(p);
         if (R_FAILED(result)) {
             data.del_cb(true);
@@ -40,6 +47,33 @@ void NsDeleteAppsAsync(const NsDeleteData& data) {
     }
     data.done_cb();
 }
+
+// taken from my gamecard installer
+struct PulseColour {
+    NVGcolor col{0, 255, 187, 255};
+    u8 delay;
+    bool increase_blue;
+};
+
+PulseColour pulse;
+
+void update_pulse_colour() {
+    if (pulse.col.g == 255) {
+        pulse.increase_blue = true;
+    } else if (pulse.col.b == 255 && pulse.delay == 10) {
+        pulse.increase_blue = false;
+        pulse.delay = 0;
+    }
+
+    if (pulse.col.b == 255 && pulse.increase_blue == true) {
+        pulse.delay++;
+    } else {
+        pulse.col.b = pulse.increase_blue ? pulse.col.b + 2 : pulse.col.b - 2;
+        pulse.col.g = pulse.increase_blue ? pulse.col.g - 2 : pulse.col.g + 2;
+    }
+}
+
+} // namespace
 
 void App::Loop() {
     while (!this->quit && appletMainLoop()) {
@@ -56,8 +90,7 @@ void Controller::UpdateButtonHeld(bool& down, bool held) {
     } else if (held) {
         this->counter += this->step;
 
-        if (this->counter >= this->MAX)
-        {
+        if (this->counter >= this->MAX) {
             down = true;
             this->counter = 0;
             this->step = std::min(this->step + 50, this->MAX_STEP);
@@ -110,6 +143,9 @@ void App::Poll() {
 
 void App::Update() {
     switch (this->menu_mode) {
+        case MenuMode::LOAD:
+            this->UpdateLoad();
+            break;
         case MenuMode::LIST:
             this->UpdateList();
             break;
@@ -123,7 +159,7 @@ void App::Update() {
 }
 
 void App::Draw() {
-    const int slot = this->queue.acquireImage(this->swapchain);
+    const auto slot = this->queue.acquireImage(this->swapchain);
     this->queue.submitCommands(this->framebuffer_cmdlists[slot]);
     this->queue.submitCommands(this->render_cmdlist);
     nvgBeginFrame(this->vg, SCREEN_WIDTH, SCREEN_HEIGHT, 1.f);
@@ -131,6 +167,9 @@ void App::Draw() {
     this->DrawBackground();
 
     switch (this->menu_mode) {
+        case MenuMode::LOAD:
+            this->DrawLoad();
+            break;
         case MenuMode::LIST:
             this->DrawList();
             break;
@@ -152,18 +191,23 @@ void App::DrawBackground() {
     gfx::drawRect(vg, 30.f, 646.0f, 1220.f, 1.f, gfx::Colour::WHITE);
 }
 
+void App::DrawLoad() {
+    gfx::drawTextArgs(this->vg, SCREEN_WIDTH / 2.f, SCREEN_HEIGHT / 2.f, 36.f, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE, gfx::Colour::YELLOW, "Loading...");
+    gfx::drawButtons(this->vg, gfx::pair{gfx::Button::B, "Back"});
+}
+
 void App::DrawList() {
-    static constexpr float box_height = 120.f;
-    static constexpr float box_width = 715.f;
-    static constexpr float icon_spacing = 12.f;
-    static constexpr float title_spacing_left = 116.f;
-    static constexpr float title_spacing_top = 30.f;
-    static constexpr float text_spacing_left = title_spacing_left;
-    static constexpr float text_spacing_top = 67.f;
-    static constexpr float sidebox_x = 870.f;
-    static constexpr float sidebox_y = 87.f;
-    static constexpr float sidebox_w = 380.f;
-    static constexpr float sidebox_h = 558.f;
+    constexpr auto box_height = 120.f;
+    constexpr auto box_width = 715.f;
+    constexpr auto icon_spacing = 12.f;
+    constexpr auto title_spacing_left = 116.f;
+    constexpr auto title_spacing_top = 30.f;
+    constexpr auto text_spacing_left = title_spacing_left;
+    constexpr auto text_spacing_top = 67.f;
+    constexpr auto sidebox_x = 870.f;
+    constexpr auto sidebox_y = 87.f;
+    constexpr auto sidebox_w = 380.f;
+    constexpr auto sidebox_h = 558.f;
 
 // uses the APP_VERSION define in makefile for string version.
 // source: https://stackoverflow.com/a/2411008
@@ -174,12 +218,12 @@ void App::DrawList() {
 #undef STRINGIZE
 #undef STRINGIZE_VALUE_OF
 
-    auto draw_size = [&](const char* str, float x, float y, std::size_t storage_size, std::size_t storage_free, std::size_t storage_used, std::size_t app_size) {
+    const auto draw_size = [&](const char* str, float x, float y, std::size_t storage_size, std::size_t storage_free, std::size_t storage_used, std::size_t app_size) {
         gfx::drawText(this->vg, x, y, 22.f, str, nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::WHITE);
         gfx::drawRect(this->vg, x - 5.f, y + 28.f, 326.f, 16.f, gfx::Colour::WHITE);
         gfx::drawRect(this->vg, x - 4.f, y + 29.f, 326.f - 2.f, 16.f - 2.f, gfx::Colour::LIGHT_BLACK);
-        const float bar_width = (static_cast<float>(storage_used) / static_cast<float>(storage_size)) * (326.f - 4.f);
-        const float used_bar_width = (static_cast<float>(app_size) / static_cast<float>(storage_size)) * (326.f - 4.f);
+        const auto bar_width = (static_cast<float>(storage_used) / static_cast<float>(storage_size)) * (326.f - 4.f);
+        const auto used_bar_width = (static_cast<float>(app_size) / static_cast<float>(storage_size)) * (326.f - 4.f);
         gfx::drawRect(this->vg, x - 3.f, y + 30.f, bar_width, 16.f - 4.f, gfx::Colour::WHITE);
         gfx::drawRect(this->vg, x - 3.f + bar_width - used_bar_width, y + 30.f, used_bar_width, 16.f - 4.f, gfx::Colour::CYAN);
         gfx::drawText(this->vg, x, y + 60.f, 18.f, "Space available", nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::WHITE);
@@ -197,23 +241,30 @@ void App::DrawList() {
     nvgSave(this->vg);
     nvgScissor(this->vg, 30.f, 86.0f, 1220.f, 646.0f); // clip
 
-    static constexpr float x = 90.f;
-    float y = this->yoff;
+    static constexpr auto x = 90.f;
+    auto y = this->yoff;
 
-    for (size_t i = this->start; i < this->entries.size(); ++i) {
+    for (size_t i = this->start; i < this->entries.size(); i++) {
         if (i == this->index) {
             // idk how to draw an outline, so i draw a colour rect then draw black rect ontop
-            gfx::drawRect(this->vg, x - 5.f, y - 5.f, box_width + 10.f, box_height + 10.f, gfx::Colour::CYAN);
+            auto col = pulse.col;
+            col.r /= 255.f;
+            col.g /= 255.f;
+            col.b /= 255.f;
+            col.a = 1.f;
+            update_pulse_colour();
+            gfx::drawRect(this->vg, x - 5.f, y - 5.f, box_width + 10.f, box_height + 10.f, col);
             gfx::drawRect(this->vg, x, y, box_width, box_height, gfx::Colour::BLACK);
         }
+
         if (this->entries[i].selected) {
-            gfx::drawRect(this->vg, x - 60.f, y + (box_height / 2.f) - (48.f / 2), 48.f, 48.f, gfx::Colour::RED);
+            gfx::drawText(this->vg, x - 60.f, y + (box_height / 2.f) - (48.f / 2), 48.f, "\uE14B", nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::CYAN);
         }
 
         gfx::drawRect(this->vg, x, y, box_width, 1.f, gfx::Colour::DARK_GREY);
         gfx::drawRect(this->vg, x, y + box_height, box_width, 1.f, gfx::Colour::DARK_GREY);
 
-        auto icon_paint = nvgImagePattern(this->vg, x + icon_spacing, y + icon_spacing, 90.f, 90.f, 0.f, this->entries[i].image, 1.f);
+        const auto icon_paint = nvgImagePattern(this->vg, x + icon_spacing, y + icon_spacing, 90.f, 90.f, 0.f, this->entries[i].image, 1.f);
         gfx::drawRect(this->vg, x + icon_spacing, y + icon_spacing, 90.f, 90.f, icon_paint);
 
         nvgSave(this->vg);
@@ -221,9 +272,43 @@ void App::DrawList() {
         gfx::drawText(this->vg, x + title_spacing_left, y + title_spacing_top, 24.f, this->entries[i].name.c_str(), nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::WHITE);
         nvgRestore(this->vg);
 
-        gfx::drawTextArgs(this->vg, x + text_spacing_left + 25.f, y + text_spacing_top + 9.f, 22.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::SILVER, "Nand: %.1f GB", static_cast<float>(this->entries[i].size_nand) / static_cast<float>(0x40000000));
-        gfx::drawTextArgs(this->vg, x + text_spacing_left + 180.f + 25.f, y + text_spacing_top + 9.f, 22.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::SILVER, "Sd: %.1f GB", static_cast<float>(this->entries[i].size_sd) / static_cast<float>(0x40000000));
-        gfx::drawTextArgs(this->vg, x + 708.f, y + 78.f, 32.f, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP, gfx::Colour::CYAN, "%.1f GB", static_cast<float>(this->entries[i].size_total) / static_cast<float>(0x40000000));
+        const auto draw_size = [&](float x_offset, size_t size, const char* name) {
+            if (size == 0) {
+                gfx::drawTextArgs(this->vg, x + text_spacing_left + x_offset, y + text_spacing_top + 9.f, 22.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::SILVER, "%s: ---", name);
+            } else {
+                if (size >= 1024 * 1024 * 1024) {
+                    if (size >= 1024ULL * 1024ULL * 1024ULL * 100ULL) { // no decimal
+                        gfx::drawTextArgs(this->vg, x + text_spacing_left + x_offset, y + text_spacing_top + 9.f, 22.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::SILVER, "%s: %.0f %s", name, static_cast<float>(size) / static_cast<float>(1024*1024*1024), "GB");
+                    } else { // use decimal
+                        gfx::drawTextArgs(this->vg, x + text_spacing_left + x_offset, y + text_spacing_top + 9.f, 22.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::SILVER, "%s: %.1f %s", name, static_cast<float>(size) / static_cast<float>(1024*1024*1024), "GB");
+                    }
+                } else {
+                    if (size >= 1024 * 1024 * 100) { // no decimal
+                        gfx::drawTextArgs(this->vg, x + text_spacing_left + x_offset, y + text_spacing_top + 9.f, 22.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::SILVER, "%s: %.0f %s", name, static_cast<float>(size) / static_cast<float>(1024*1024), "MB");
+                    } else { // use decimal
+                        gfx::drawTextArgs(this->vg, x + text_spacing_left + x_offset, y + text_spacing_top + 9.f, 22.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::SILVER, "%s: %.1f %s", name, static_cast<float>(size) / static_cast<float>(1024*1024), "MB");
+                    }
+                }
+            }
+        };
+
+        draw_size(0.f, this->entries[i].size_nand, "Nand");
+        draw_size(180.f, this->entries[i].size_sd, "Sd");
+
+        if (this->entries[i].size_total >= 1024 * 1024 * 1024) {
+            if (this->entries[i].size_total >= 1024ULL * 1024ULL * 1024ULL * 100ULL) { // no decimal
+                gfx::drawTextArgs(this->vg, x + 708.f, y + 78.f, 32.f, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP, gfx::Colour::CYAN, "%.0f GB", static_cast<float>(this->entries[i].size_total) / static_cast<float>(1024*1024*1024));
+            } else { // use decimal
+                gfx::drawTextArgs(this->vg, x + 708.f, y + 78.f, 32.f, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP, gfx::Colour::CYAN, "%.1f GB", static_cast<float>(this->entries[i].size_total) / static_cast<float>(1024*1024*1024));
+            }
+        } else {
+            if (this->entries[i].size_total >= 1024 * 1024 * 100) { // no decimal
+                gfx::drawTextArgs(this->vg, x + 708.f, y + 78.f, 32.f, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP, gfx::Colour::CYAN, "%.0f MB", static_cast<float>(this->entries[i].size_total) / static_cast<float>(1024*1024));
+            } else { // use decimal
+                gfx::drawTextArgs(this->vg, x + 708.f, y + 78.f, 32.f, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP, gfx::Colour::CYAN, "%.1f MB", static_cast<float>(this->entries[i].size_total) / static_cast<float>(1024*1024));
+            }
+        }
+
         y += box_height;
 
         // out of bounds (clip)
@@ -235,7 +320,7 @@ void App::DrawList() {
     nvgRestore(this->vg);
 
     gfx::drawTextArgs(this->vg, 55.f, 670.f, 24.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::WHITE, "Selected %lu / %lu", this->delete_count, this->entries.size());
-    gfx::drawButtons(this->vg, gfx::pair{gfx::Button::A, "Select"}, gfx::pair{gfx::Button::B, "Exit"}, gfx::pair{gfx::Button::PLUS, "Delete Selected"}, gfx::pair{gfx::Button::R, this->GetSortStr()});
+    gfx::drawButtons(this->vg, gfx::pair{gfx::Button::A, "Select"}, gfx::pair{gfx::Button::B, "Exit"}, gfx::pair{gfx::Button::PLUS, "Delete Selected"}, this->delete_count == this->entries.size() ? gfx::pair{gfx::Button::ZL, "Deselect All"} : gfx::pair{gfx::Button::ZL, "Select All"}, gfx::pair{gfx::Button::R, this->GetSortStr()});
 
 }
 
@@ -249,6 +334,7 @@ void App::DrawProgress() {
     const auto count = this->delete_index;
     this->mutex.unlock();
     gfx::drawTextArgs(this->vg, SCREEN_WIDTH / 2.f, SCREEN_HEIGHT / 2.f, 36.f, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE, gfx::Colour::YELLOW, "Deleted %lu / %lu", count, this->delete_entries.size());
+    gfx::drawButtons(this->vg, gfx::pair{gfx::Button::B, "Back"});
 }
 
 void App::Sort()
@@ -263,15 +349,32 @@ void App::Sort()
 }
 
 const char* App::GetSortStr() {
-    switch (static_cast<SortType>(this->sort_type))
-    {
+    switch (static_cast<SortType>(this->sort_type)) {
         case SortType::Alpha_AZ: return "Sort Alpha: A-Z";
         case SortType::Alpha_ZA: return "Sort Alpha: Z-A";
         case SortType::Size_BigSmall: return "Sort Size: 9-0";
         case SortType::Size_SmallBig: return "Sort Size: 0-9";
     }
 
-    return "NULL";
+    std::unreachable();
+}
+
+void App::UpdateLoad() {
+    if (this->controller.B) {
+        this->async_thread.request_stop();
+        this->async_thread.get();
+        this->quit = true;
+        return;
+    }
+
+    {
+        std::scoped_lock lock{this->mutex};
+        if (this->finished_scanning) {
+            this->async_thread.get();
+            this->Sort();
+            this->menu_mode = MenuMode::LIST;
+        }
+    }
 }
 
 void App::UpdateList() {
@@ -280,10 +383,10 @@ void App::UpdateList() {
     } else if (this->controller.A) {
         if (this->entries[this->index].selected) {
             this->entries[this->index].selected = false;
-            --this->delete_count;
+            this->delete_count--;
         } else {
             this->entries[this->index].selected = true;
-            ++this->delete_count;
+            this->delete_count++;
         }
         // add to / remove from delete list
     } else if (this->controller.START) { // start delete
@@ -297,36 +400,46 @@ void App::UpdateList() {
         }
     } else if (this->controller.DOWN) { // move down
         if (this->index < (this->entries.size() - 1)) {
-            ++this->index;
+            this->index++;
             this->ypos += this->BOX_HEIGHT;
             if ((this->ypos + this->BOX_HEIGHT) > 646.f) {
                 LOG("moved down\n");
                 this->ypos -= this->BOX_HEIGHT;
                 this->yoff = this->ypos - ((this->index - this->start - 1) * this->BOX_HEIGHT);
-                ++this->start;
+                this->start++;
             }
         }
     } else if (this->controller.UP) { // move up
         if (this->index != 0 && this->entries.size()) {
-            --this->index;
+            this->index--;
             this->ypos -= this->BOX_HEIGHT;
             if (this->ypos < 86.f) {
                 LOG("moved up\n");
                 this->ypos += this->BOX_HEIGHT;
                 this->yoff = this->ypos;
-                --this->start;
+                this->start--;
             }
         }
-    } else if (this->controller.R)
-    {
+    } else if (this->controller.R) {
         this->sort_type++;
 
-        if (this->sort_type == static_cast<uint8_t>(SortType::MAX))
-        {
+        if (this->sort_type == std::to_underlying(SortType::MAX)) {
             this->sort_type = 0;
         }
 
         this->Sort();
+    } else if (this->controller.L2) { // select / deselect all
+        if (this->delete_count == this->entries.size()) {
+            for (auto& a : this->entries) {
+                a.selected = false;
+            }
+            this->delete_count = 0;
+        } else {
+            for (auto& a : this->entries) {
+                a.selected = true;
+            }
+            this->delete_count = this->entries.size();
+        }
     }
     // handle direction keys
 }
@@ -342,7 +455,7 @@ void App::UpdateConfirm() {
                     if (error) {
                         LOG("error whilst deleting AppID %lX\n", this->delete_entries[this->delete_index]);
                     }
-                    ++this->delete_index;
+                    this->delete_index++;
                 },
             .done_cb = [this](){
                 std::scoped_lock lock{this->mutex};
@@ -351,7 +464,7 @@ void App::UpdateConfirm() {
             }
         };
         this->menu_mode = MenuMode::PROGRESS;
-        this->async_thread = std::async(std::launch::async, NsDeleteAppsAsync, data);
+        this->async_thread = util::async(NsDeleteAppsAsync, data);
     } else if (this->controller.B) {
         this->delete_entries.clear();
         this->menu_mode = MenuMode::LIST;
@@ -359,6 +472,12 @@ void App::UpdateConfirm() {
 }
 
 void App::UpdateProgress() {
+    if (this->controller.B) {
+        this->async_thread.request_stop();
+        this->async_thread.get();
+        return;
+    }
+
     std::scoped_lock lock{this->mutex};
     if (this->finished_deleting) {
         // thread is already over, but we still have to call get.
@@ -366,7 +485,7 @@ void App::UpdateProgress() {
         // remove deleted entries.
         // this looks like it would be slow but it really isn't.
         for (const auto&p : this->delete_entries) {
-            for (size_t i = 0; i < this->entries.size(); ++i) {
+            for (size_t i = 0; i < this->entries.size(); i++) {
                 if (this->entries[i].id == p) {
                     nvgDeleteImage(this->vg, this->entries[i].image);
                     this->entries.erase(this->entries.begin() + i);
@@ -382,11 +501,11 @@ void App::UpdateProgress() {
         this->delete_entries.clear();
         this->menu_mode = MenuMode::LIST;
     }
-    // probably do nothing here.
-    // could add cancel option but, maybe not.
 }
 
-bool App::Scan() {
+// NOTE: there's a chance that we run out of memory here
+// if the user has a *lot* of games installed.
+void App::Scan(std::stop_token stop_token) {
     Result result{};
     s32 offset{};
     u64 jpeg_size{};
@@ -394,45 +513,35 @@ bool App::Scan() {
     NacpLanguageEntry* language_entry{};
     auto control_data = std::make_unique<NsApplicationControlData>();
     std::array<NsApplicationRecord, 30> record_list;
+    ApplicationOccupiedSize size{};
 
     for (;;) {
         s32 record_count{};
         result = nsListApplicationRecord(record_list.data(), static_cast<s32>(record_list.size()), offset, &record_count);
         if (R_FAILED(result)) {
             LOG("failed to get record count\n");
-            return false;
+            goto done;
         }
         // either we have ran out of games or we have no games installed.
         if (record_count == 0) {
             LOG("record count is 0\n");
-            return false;
+            goto done;
         }
 
-        for (auto i = 0; i < record_count; ++i) {
-        AppEntry entry;
+        for (auto i = 0; i < record_count && !stop_token.stop_requested(); i++) {
+            AppEntry entry;
             result = nsGetApplicationControlData(NsApplicationControlSource_Storage, record_list[i].application_id, control_data.get(), sizeof(NsApplicationControlData), &jpeg_size);
             // can fail with very messed up piracy installs, it would fail in ofw as well.
             if (R_FAILED(result)) {
                 LOG("failed to get control data for %lX\n", record_list[i].application_id);
-
-                // this is a corrupted entry!
-                entry.name = "Corrupted";
-                entry.author = "NA";
-                entry.display_version = "NA";
-                entry.id = record_list[i].application_id;
-                entry.image = this->default_icon_image;
-                entry.own_image = false; // we don't own it
-                this->entries.emplace_back(std::move(entry));
-                ++count;
-                // return false;
+                goto corrupted_install;
             } else {
                 result = nsGetApplicationDesiredLanguage(&control_data->nacp, &language_entry);
                 if (R_FAILED(result)) {
                     LOG("failed to get lang data\n");
-                    return false;
+                    goto corrupted_install;
                 } else {
-                    ApplicationOccupiedSize size{};
-                    auto result = nsCalculateApplicationOccupiedSize(record_list[i].application_id, (NsApplicationOccupiedSize*)&size);
+                    result = nsCalculateApplicationOccupiedSize(record_list[i].application_id, (NsApplicationOccupiedSize*)&size);
                     if (R_FAILED(result)) {
                         LOG("failed to get application occupied size for ID %lX\n", record_list[i].application_id);
                         entry.size_total = entry.size_nand = entry.size_sd = 0;
@@ -464,24 +573,40 @@ bool App::Scan() {
                     assert((jpeg_size - sizeof(NacpStruct)) > 0 && "jpeg size is smaller than the size of NacpStruct");
                     entry.image = nvgCreateImageMem(this->vg, 0, control_data->icon, jpeg_size - sizeof(NacpStruct));
                     entry.own_image = true; // we own it
-                    LOG("added %s\n", entry.name.c_str());
+                    // entry.image = this->default_icon_image;
+                    // entry.own_image = false; // we don't own it
+                    // LOG("added %s\n", entry.name.c_str());
                     this->entries.emplace_back(std::move(entry));
-                    ++count;
+                    count++;
+
+                    continue;
+
+                corrupted_install:
+                    entry.name = "Corrupted";
+                    entry.author = "Corrupted";
+                    entry.display_version = "Corrupted";
+                    entry.id = record_list[i].application_id;
+                    entry.image = this->default_icon_image;
+                    entry.own_image = false; // we don't own it
+                    this->entries.emplace_back(std::move(entry));
+                    this->has_correupted = true;
+                    count++;
                 }
             }
         }
 
         // if we have less than count, then we are done!
         if (static_cast<size_t>(record_count) < record_list.size()) {
-            return true;
+            goto done;
         }
 
         offset += record_count;
     }
 
-    return true;
+done:
+    std::scoped_lock lock{this->mutex};
+    this->finished_scanning = true;
 }
-
 
 App::App() {
     nsGetTotalSpaceSize(NcmStorageId_SdCard, (s64*)&this->sdcard_storage_size_total);
@@ -535,19 +660,27 @@ App::App() {
     this->default_icon_image = nvgCreateImage(this->vg, "romfs:/default_icon.jpg", NVG_IMAGE_NEAREST);
 
     // todo: handle errors
-    this->Scan();
-    this->Sort();
+    this->async_thread = util::async([this](std::stop_token stop_token){
+            this->Scan(stop_token);
+        }
+    );
 
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     padInitializeDefault(&this->pad);
 }
 
 App::~App() {
+    if (this->async_thread.valid()) {
+        this->async_thread.request_stop();
+        this->async_thread.get();
+    }
+
     for (auto&p : this->entries) {
         if (p.own_image) {
             nvgDeleteImage(this->vg, p.image);
         }
     }
+
     nvgDeleteImage(this->vg, default_icon_image);
     this->destroyFramebufferResources();
     nvgDeleteDk(this->vg);
@@ -579,7 +712,7 @@ void App::createFramebufferResources() {
     std::array<DkImage const*, NumFramebuffers> fb_array;
     const uint64_t fb_size  = layout_framebuffer.getSize();
     const uint32_t fb_align = layout_framebuffer.getAlignment();
-    for (unsigned i = 0; i < fb_array.size(); ++i) {
+    for (unsigned i = 0; i < fb_array.size(); i++) {
         // Allocate a framebuffer
         this->framebuffers_mem[i] = pool_images->allocate(fb_size, fb_align);
         this->framebuffers[i].initialize(layout_framebuffer, framebuffers_mem[i].getMemBlock(), framebuffers_mem[i].getOffset());
@@ -611,7 +744,7 @@ void App::destroyFramebufferResources() {
     swapchain.destroy();
 
     // Destroy the framebuffers
-    for (unsigned i = 0; i < NumFramebuffers; ++i) {
+    for (unsigned i = 0; i < NumFramebuffers; i++) {
         framebuffers_mem[i].destroy();
     }
 
